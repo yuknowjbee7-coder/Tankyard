@@ -76,6 +76,7 @@ export default function App() {
 
   const [orderProduct, setOrderProduct] = useState(null);
   const [toast, setToast] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const flash = (msg) => {
     setToast(msg);
@@ -193,6 +194,25 @@ export default function App() {
     }
     flash("Listing removed");
     load();
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingImage(true);
+    const fileExt = file.name.split(".").pop();
+    const filePath = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from("tank-images")
+      .upload(filePath, file);
+    if (uploadError) {
+      flash("Photo upload failed — try again");
+      setUploadingImage(false);
+      return;
+    }
+    const { data } = supabase.storage.from("tank-images").getPublicUrl(filePath);
+    setForm((f) => ({ ...f, image_url: data.publicUrl }));
+    setUploadingImage(false);
   };
 
   // --- Payment form ---
@@ -496,8 +516,27 @@ export default function App() {
                 </div>
               </div>
               <div>
-                <label className="ts-label">Image URL (optional)</label>
-                <input className="ts-input" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." />
+                <label className="ts-label">Photo (optional)</label>
+                <input
+                  className="ts-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  style={{ padding: 8 }}
+                />
+                {uploadingImage && <p style={{ fontSize: 12, color: "#4A5560", margin: "6px 0 0" }}>Uploading…</p>}
+                {form.image_url && !uploadingImage && (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+                    <img src={form.image_url} alt="Preview" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 4, border: "1px solid #d8d3c8" }} />
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, image_url: "" }))}
+                      style={{ background: "none", border: "none", color: "#993C1D", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+                    >
+                      Remove photo
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="ts-label">Description (optional)</label>
